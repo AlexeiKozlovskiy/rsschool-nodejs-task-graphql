@@ -1,6 +1,5 @@
 import {
   GraphQLObjectType,
-  GraphQLString,
   GraphQLBoolean,
   GraphQLInt,
   GraphQLNonNull,
@@ -8,27 +7,27 @@ import {
 } from 'graphql';
 import { UUIDType } from '../types/uuid.js';
 import { FastifyInstance } from 'fastify';
-import { ResolveArgs, typeArgs } from '../types/types.js';
+import { ResolveArgs, typeArgs, MemberTypeId, IUser, IMember } from '../types/types.js';
+import { userGraphQLType, getUsersToProfileResolve } from './user.js';
+import { memberTypeGraphQLType, getMemberTypeToProfileResolve } from './memberType.js';
 
-const profileGraphQLType = new GraphQLObjectType({
+export const profileGraphQLType = new GraphQLObjectType({
   name: 'Profile',
-  fields: {
-    id: {
-      type: UUIDType,
+  fields: () => ({
+    id: { type: UUIDType },
+    isMale: { type: GraphQLBoolean },
+    yearOfBirth: { type: GraphQLInt },
+    userId: { type: UUIDType },
+    memberTypeId: { type: MemberTypeId },
+    user: {
+      type: userGraphQLType,
+      resolve: getUsersToProfileResolve,
     },
-    isMale: {
-      type: GraphQLBoolean,
+    memberType: {
+      type: memberTypeGraphQLType,
+      resolve: getMemberTypeToProfileResolve,
     },
-    yearOfBirth: {
-      type: GraphQLInt,
-    },
-    userId: {
-      type: UUIDType,
-    },
-    memberTypeId: {
-      type: GraphQLString,
-    },
-  },
+  }),
 });
 
 const profilesGraphQLType = new GraphQLNonNull(
@@ -40,7 +39,6 @@ const getProfileResolve = async (parent, args: ResolveArgs, fastify: FastifyInst
   const profile = await fastify.prisma.profile.findUnique({
     where: { id },
   });
-
   return profile;
 };
 
@@ -48,13 +46,37 @@ const getProfilesResolve = async (parent, args, fastify: FastifyInstance) => {
   return fastify.prisma.profile.findMany();
 };
 
-export const profileFields = {
+export const getProfileToUserResolve = async (
+  { id }: IUser,
+  args,
+  fastify: FastifyInstance,
+) => {
+  const profile = await fastify.prisma.profile.findUnique({
+    where: { userId: id },
+  });
+  return profile;
+};
+
+export const getProfileToMemberTypeResolve = async (
+  { id }: IMember,
+  args,
+  fastify: FastifyInstance,
+) => {
+  const profile = await fastify.prisma.profile.findMany({
+    where: { memberTypeId: id },
+  });
+  return profile;
+};
+
+const profile = {
   type: profileGraphQLType,
   args: typeArgs,
   resolve: getProfileResolve,
 };
 
-export const profilesFields = {
+const profiles = {
   type: profilesGraphQLType,
   resolve: getProfilesResolve,
 };
+
+export const profileQuery = { profile, profiles };

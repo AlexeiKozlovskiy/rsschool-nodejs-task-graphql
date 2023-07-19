@@ -1,30 +1,21 @@
-import {
-  GraphQLObjectType,
-  GraphQLString,
-  GraphQLID,
-  GraphQLNonNull,
-  GraphQLList,
-} from 'graphql';
+import { GraphQLObjectType, GraphQLString, GraphQLNonNull, GraphQLList } from 'graphql';
 import { UUIDType } from '../types/uuid.js';
 import { FastifyInstance } from 'fastify';
-import { ResolveArgs, typeArgs } from '../types/types.js';
+import { ResolveArgs, typeArgs, IUser } from '../types/types.js';
+import { userGraphQLType, getUsersToPostResolve } from './user.js';
 
-const postGraphQLType = new GraphQLObjectType({
+export const postGraphQLType = new GraphQLObjectType({
   name: 'Post',
-  fields: {
-    id: {
-      type: UUIDType,
+  fields: () => ({
+    id: { type: UUIDType },
+    title: { type: GraphQLString },
+    content: { type: GraphQLString },
+    authorId: { type: UUIDType },
+    author: {
+      type: userGraphQLType,
+      resolve: getUsersToPostResolve,
     },
-    title: {
-      type: GraphQLString,
-    },
-    content: {
-      type: GraphQLString,
-    },
-    authorId: {
-      type: GraphQLID,
-    },
-  },
+  }),
 });
 
 const postsGraphQLType = new GraphQLNonNull(
@@ -43,13 +34,26 @@ const getPostsResolve = async (parent, args, fastify: FastifyInstance) => {
   return fastify.prisma.post.findMany();
 };
 
-export const postFields = {
+export const getPostToUserResolve = async (
+  { id }: IUser,
+  args,
+  fastify: FastifyInstance,
+) => {
+  const post = await fastify.prisma.post.findMany({
+    where: { authorId: id },
+  });
+  return post;
+};
+
+const post = {
   type: postGraphQLType,
   args: typeArgs,
   resolve: getPostResolve,
 };
 
-export const postsFields = {
+const posts = {
   type: postsGraphQLType,
   resolve: getPostsResolve,
 };
+
+export const postQuery = { post, posts };

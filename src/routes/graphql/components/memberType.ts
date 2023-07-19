@@ -1,28 +1,30 @@
 import {
   GraphQLObjectType,
-  GraphQLString,
   GraphQLFloat,
   GraphQLInt,
   GraphQLNonNull,
   GraphQLList,
 } from 'graphql';
-import { UUIDType } from '../types/uuid.js';
 import { FastifyInstance } from 'fastify';
-import { ResolveArgs, typeArgs } from '../types/types.js';
+import {
+  ResolveArgs,
+  typeArgsMemberTypeId,
+  MemberTypeId,
+  IProfile,
+} from '../types/types.js';
+import { profileGraphQLType, getProfileToMemberTypeResolve } from './profile.js';
 
-const memberTypeGraphQLType = new GraphQLObjectType({
+export const memberTypeGraphQLType = new GraphQLObjectType({
   name: 'MemberType',
-  fields: {
-    id: {
-      type: GraphQLString,
+  fields: () => ({
+    id: { type: MemberTypeId },
+    discount: { type: GraphQLFloat },
+    postsLimitPerMonth: { type: GraphQLInt },
+    profiles: {
+      type: new GraphQLList(profileGraphQLType),
+      resolve: getProfileToMemberTypeResolve,
     },
-    discount: {
-      type: GraphQLFloat,
-    },
-    postsLimitPerMonth: {
-      type: GraphQLInt,
-    },
-  },
+  }),
 });
 
 const memberTypesGraphQLType = new GraphQLNonNull(
@@ -31,10 +33,9 @@ const memberTypesGraphQLType = new GraphQLNonNull(
 
 const getMemberTypeResolve = async (
   parent,
-  args: ResolveArgs,
+  { id }: ResolveArgs,
   fastify: FastifyInstance,
 ) => {
-  const { id } = args;
   const memberType = await fastify.prisma.memberType.findUnique({
     where: { id },
   });
@@ -45,13 +46,26 @@ const getMemberTypesResolve = async (parent, args, fastify: FastifyInstance) => 
   return fastify.prisma.memberType.findMany();
 };
 
-export const memberTypeFields = {
+export const getMemberTypeToProfileResolve = async (
+  { memberTypeId }: IProfile,
+  args,
+  fastify: FastifyInstance,
+) => {
+  const memberType = await fastify.prisma.memberType.findUnique({
+    where: { id: memberTypeId },
+  });
+  return memberType;
+};
+
+const memberType = {
   type: memberTypeGraphQLType,
-  args: typeArgs,
+  args: typeArgsMemberTypeId,
   resolve: getMemberTypeResolve,
 };
 
-export const memberTypesFields = {
+const memberTypes = {
   type: memberTypesGraphQLType,
   resolve: getMemberTypesResolve,
 };
+
+export const memberTypeQuery = { memberType, memberTypes };
