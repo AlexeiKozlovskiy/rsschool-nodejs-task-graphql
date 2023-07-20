@@ -20,7 +20,7 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
         variableValues: req.body.variables,
         contextValue: fastify,
       });
-      return { data: result.data, errors: result.errors };
+      return result;
     },
   });
 };
