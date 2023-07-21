@@ -50,10 +50,6 @@ export interface CreateUserArgs {
   };
 }
 
-export interface ChangeUserArgs extends CreateUserArgs {
-  id: string;
-}
-
 export interface SubscribeUserArgs {
   userId: string;
   authorId: string;
@@ -67,10 +63,6 @@ export interface CreatePostArgs {
   };
 }
 
-export interface UpdatePostArgs extends CreatePostArgs {
-  id: string;
-}
-
 export interface CreateProfileArgs {
   dto: {
     isMale: boolean;
@@ -79,7 +71,6 @@ export interface CreateProfileArgs {
     memberTypeId: string;
   };
 }
-
-export interface UpdateProfileArgs extends CreateProfileArgs {
-  id: string;
-}
+export interface ChangeUserArgs extends ID, CreateUserArgs {}
+export interface UpdatePostArgs extends ID, CreatePostArgs {}
+export interface UpdateProfileArgs extends ID, CreateProfileArgs {}

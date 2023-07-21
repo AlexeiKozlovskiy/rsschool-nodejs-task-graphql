@@ -64,3 +64,4 @@ dist
 
 database.db
 database.db-journal
+src/routes/graphql/components/context.ts
