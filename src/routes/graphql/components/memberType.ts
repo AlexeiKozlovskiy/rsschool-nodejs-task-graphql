@@ -5,55 +5,45 @@ import {
   GraphQLNonNull,
   GraphQLList,
 } from 'graphql';
-import { FastifyInstance } from 'fastify';
-import { ResolveArgs, Profile } from '../types/types.js';
-import { typeArgsMemberTypeId, MemberTypeId } from '../types/constant.js';
-import { profileGraphQLType, getProfileToMemberTypeResolve } from './profile.js';
+import { ID, Profile, Context } from '../types/types.js';
+import { typeArgsMemberTypeId, MemberId } from '../types/constant.js';
+import { profileType, profToMemberResolve } from './profile.js';
 
-export const memberTypeGraphQLType = new GraphQLObjectType({
+export const memberGQL = new GraphQLObjectType({
   name: 'MemberType',
   fields: () => ({
-    id: { type: MemberTypeId },
+    id: { type: MemberId },
     discount: { type: GraphQLFloat },
     postsLimitPerMonth: { type: GraphQLInt },
     profiles: {
-      type: new GraphQLList(profileGraphQLType),
-      resolve: getProfileToMemberTypeResolve,
+      type: new GraphQLList(profileType),
+      resolve: profToMemberResolve,
     },
   }),
 });
 
-const memberTypesGraphQLType = new GraphQLNonNull(
-  new GraphQLList(new GraphQLNonNull(memberTypeGraphQLType)),
-);
+const memberTypesGQL = new GraphQLNonNull(new GraphQLList(new GraphQLNonNull(memberGQL)));
 
-export const getMemberTypeToProfileResolve = async (
+export const memberToProfResolve = async (
   { memberTypeId }: Profile,
-  args,
-  fastify: FastifyInstance,
+  _,
+  { prisma }: Context,
 ) => {
-  const memberType = await fastify.prisma.memberType.findUnique({
-    where: { id: memberTypeId },
-  });
-  return memberType;
+  return await prisma.memberType.findUnique({ where: { id: memberTypeId } });
 };
 
 const memberType = {
-  type: memberTypeGraphQLType,
+  type: memberGQL,
   args: typeArgsMemberTypeId,
-  resolve: async (parent, { id }: ResolveArgs, fastify: FastifyInstance) => {
-    const memberType = await fastify.prisma.memberType.findUnique({
-      where: { id },
-    });
-    return memberType;
+  resolve: async (_, { id }: ID, { prisma }: Context) => {
+    return await prisma.memberType.findUnique({ where: { id } });
   },
 };
 
 const memberTypes = {
-  type: memberTypesGraphQLType,
-  resolve: async (parent, args, fastify: FastifyInstance) => {
-    const memberType = await fastify.prisma.memberType.findMany();
-    return memberType;
+  type: memberTypesGQL,
+  resolve: async (_, args, { prisma }: Context) => {
+    return await prisma.memberType.findMany();
   },
 };
 

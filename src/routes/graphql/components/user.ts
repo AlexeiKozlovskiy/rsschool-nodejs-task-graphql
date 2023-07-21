@@ -8,116 +8,79 @@ import {
   GraphQLInputObjectType,
 } from 'graphql';
 import { UUIDType } from '../types/uuid.js';
-import { FastifyInstance } from 'fastify';
 import {
-  ResolveArgs,
+  ID,
   Post,
   Profile,
   CreateUserArgs,
   ChangeUserArgs,
   SubscribeUserArgs,
+  Context,
 } from '../types/types.js';
 import { typeArgs } from '../types/constant.js';
-import { profileGraphQLType, getProfileToUserResolve } from './profile.js';
-import { postGraphQLType, getPostToUserResolve } from './post.js';
+import { profileType, profileToUserResolve } from './profile.js';
+import { postType, postToUserResolve } from './post.js';
 
-export const userGraphQLType = new GraphQLObjectType({
+export const userType = new GraphQLObjectType({
   name: 'User',
   fields: () => ({
     id: { type: UUIDType },
     name: { type: GraphQLString },
     balance: { type: GraphQLFloat },
     profile: {
-      type: profileGraphQLType,
-      resolve: getProfileToUserResolve,
+      type: profileType,
+      resolve: profileToUserResolve,
     },
     posts: {
-      type: new GraphQLList(postGraphQLType),
-      resolve: getPostToUserResolve,
+      type: new GraphQLList(postType),
+      resolve: postToUserResolve,
     },
     subscribedToUser: {
-      type: new GraphQLNonNull(new GraphQLList(userGraphQLType)),
-      resolve: getSubscToUserResolve,
+      type: new GraphQLNonNull(new GraphQLList(userType)),
+      resolve: subsToUserResolve,
     },
     userSubscribedTo: {
-      type: new GraphQLNonNull(new GraphQLList(userGraphQLType)),
-      resolve: getUserSubscToResolve,
+      type: new GraphQLNonNull(new GraphQLList(userType)),
+      resolve: userSubsToResolve,
     },
   }),
 });
 
-const usersGraphQLType = new GraphQLNonNull(
-  new GraphQLList(new GraphQLNonNull(userGraphQLType)),
-);
+const usersType = new GraphQLNonNull(new GraphQLList(new GraphQLNonNull(userType)));
 
-async function getSubscToUserResolve(
-  { id }: ResolveArgs,
-  args,
-  fastify: FastifyInstance,
-) {
-  const user = await fastify.prisma.user.findMany({
-    where: {
-      userSubscribedTo: { some: { authorId: id } },
-    },
+async function subsToUserResolve({ id }: ID, _, { prisma }: Context) {
+  return await prisma.user.findMany({
+    where: { userSubscribedTo: { some: { authorId: id } } },
   });
-  return user;
 }
 
-async function getUserSubscToResolve(
-  { id }: ResolveArgs,
-  args,
-  fastify: FastifyInstance,
-) {
-  const user = await fastify.prisma.user.findMany({
-    where: {
-      subscribedToUser: { some: { subscriberId: id } },
-    },
+async function userSubsToResolve({ id }: ID, _, { prisma }: Context) {
+  return await prisma.user.findMany({
+    where: { subscribedToUser: { some: { subscriberId: id } } },
   });
-  return user;
 }
 
-export async function getUsersToPostResolve(
-  { authorId }: Post,
-  args,
-  fastify: FastifyInstance,
-) {
-  const user = await fastify.prisma.user.findUnique({
-    where: { id: authorId },
-  });
-  return user;
+export async function usersToPostResolve({ authorId }: Post, _, { prisma }: Context) {
+  return await prisma.user.findUnique({ where: { id: authorId } });
 }
 
-export async function getUsersToProfileResolve(
-  { userId }: Profile,
-  args,
-  fastify: FastifyInstance,
-) {
-  const user = await fastify.prisma.user.findUnique({
-    where: { id: userId },
-  });
-  return user;
+export async function usersToProfResolve({ userId }: Profile, _, { prisma }: Context) {
+  return await prisma.user.findUnique({ where: { id: userId } });
 }
 
 const user = {
-  type: userGraphQLType,
+  type: userType,
   args: typeArgs,
-  resolve: async (parent, { id }: ResolveArgs, fastify: FastifyInstance) => {
-    const user = await fastify.prisma.user.findUnique({
-      where: { id },
-    });
-    return user;
+  resolve: async (_, { id }: ID, { prisma }: Context) => {
+    return await prisma.user.findUnique({ where: { id } });
   },
 };
 
 const users = {
-  type: usersGraphQLType,
-  resolve: async (parent, args, fastify: FastifyInstance) => {
-    const user = fastify.prisma.user.findMany();
-    return user;
-  },
+  type: usersType,
+  resolve: async (_, args, { prisma }: Context) => prisma.user.findMany(),
 };
 
-// mutations
 const createUserArgs: GraphQLInputObjectType = new GraphQLInputObjectType({
   name: 'CreateUserInput',
   fields: {
@@ -135,28 +98,23 @@ const changeUserArgs: GraphQLInputObjectType = new GraphQLInputObjectType({
 });
 
 const createUser = {
-  type: userGraphQLType,
+  type: userType,
   args: {
     dto: { type: new GraphQLNonNull(createUserArgs) },
   },
-  resolve: async (parent, { dto }: CreateUserArgs, fastify: FastifyInstance) => {
-    const user = await fastify.prisma.user.create({ data: dto });
-    return user;
+  resolve: async (_, { dto }: CreateUserArgs, { prisma }: Context) => {
+    return await prisma.user.create({ data: dto });
   },
 };
 
 const changeUser = {
-  type: userGraphQLType,
+  type: userType,
   args: {
     id: { type: new GraphQLNonNull(UUIDType) },
     dto: { type: new GraphQLNonNull(changeUserArgs) },
   },
-  resolve: async (parent, { id, dto }: ChangeUserArgs, fastify: FastifyInstance) => {
-    const user = await fastify.prisma.user.update({
-      where: { id },
-      data: dto,
-    });
-    return user;
+  resolve: async (_, { id, dto }: ChangeUserArgs, { prisma }: Context) => {
+    return await prisma.user.update({ where: { id }, data: dto });
   },
 };
 
@@ -165,9 +123,9 @@ const deleteUser = {
   args: {
     id: { type: new GraphQLNonNull(UUIDType) },
   },
-  resolve: async (parent, { id }: { id: string }, fastify: FastifyInstance) => {
+  resolve: async (_, { id }: ID, { prisma }: Context) => {
     try {
-      await fastify.prisma.user.delete({ where: { id } });
+      await prisma.user.delete({ where: { id } });
     } catch (error) {
       return error;
     }
@@ -175,21 +133,16 @@ const deleteUser = {
 };
 
 const subscribeTo = {
-  type: userGraphQLType,
+  type: userType,
   args: {
     userId: { type: new GraphQLNonNull(UUIDType) },
     authorId: { type: new GraphQLNonNull(UUIDType) },
   },
-  resolve: async (
-    parent,
-    { userId, authorId }: SubscribeUserArgs,
-    fastify: FastifyInstance,
-  ) => {
-    const user = await fastify.prisma.user.update({
+  resolve: async (_, { userId, authorId }: SubscribeUserArgs, { prisma }: Context) => {
+    return await prisma.user.update({
       where: { id: userId },
       data: { userSubscribedTo: { create: { authorId } } },
     });
-    return user;
   },
 };
 
@@ -199,12 +152,8 @@ const unsubscribeFrom = {
     userId: { type: new GraphQLNonNull(UUIDType) },
     authorId: { type: new GraphQLNonNull(UUIDType) },
   },
-  resolve: async (
-    parent,
-    { userId, authorId }: SubscribeUserArgs,
-    fastify: FastifyInstance,
-  ) => {
-    await fastify.prisma.subscribersOnAuthors.deleteMany({
+  resolve: async (_, { userId, authorId }: SubscribeUserArgs, { prisma }: Context) => {
+    await prisma.subscribersOnAuthors.deleteMany({
       where: { subscriberId: userId, authorId },
     });
     return true;
@@ -212,7 +161,6 @@ const unsubscribeFrom = {
 };
 
 export const userQuery = { user, users };
-
 export const userMutations = {
   createUser,
   changeUser,

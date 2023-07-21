@@ -7,89 +7,67 @@ import {
   GraphQLInputObjectType,
 } from 'graphql';
 import { UUIDType } from '../types/uuid.js';
-import { FastifyInstance } from 'fastify';
 import {
-  ResolveArgs,
+  ID,
   User,
   Member,
   CreateProfileArgs,
   UpdateProfileArgs,
+  Context,
 } from '../types/types.js';
-import { typeArgs, MemberTypeId } from '../types/constant.js';
-import { userGraphQLType, getUsersToProfileResolve } from './user.js';
-import { memberTypeGraphQLType, getMemberTypeToProfileResolve } from './memberType.js';
+import { typeArgs, MemberId } from '../types/constant.js';
+import { userType, usersToProfResolve } from './user.js';
+import { memberGQL, memberToProfResolve } from './memberType.js';
 
-export const profileGraphQLType = new GraphQLObjectType({
+export const profileType = new GraphQLObjectType({
   name: 'Profile',
   fields: () => ({
     id: { type: UUIDType },
     isMale: { type: GraphQLBoolean },
     yearOfBirth: { type: GraphQLInt },
     userId: { type: UUIDType },
-    memberTypeId: { type: MemberTypeId },
+    memberTypeId: { type: MemberId },
     user: {
-      type: userGraphQLType,
-      resolve: getUsersToProfileResolve,
+      type: userType,
+      resolve: usersToProfResolve,
     },
     memberType: {
-      type: memberTypeGraphQLType,
-      resolve: getMemberTypeToProfileResolve,
+      type: memberGQL,
+      resolve: memberToProfResolve,
     },
   }),
 });
 
-const profilesGraphQLType = new GraphQLNonNull(
-  new GraphQLList(new GraphQLNonNull(profileGraphQLType)),
-);
+const profilesType = new GraphQLNonNull(new GraphQLList(new GraphQLNonNull(profileType)));
 
-export const getProfileToUserResolve = async (
-  { id }: User,
-  args,
-  fastify: FastifyInstance,
-) => {
-  const profile = await fastify.prisma.profile.findUnique({
-    where: { userId: id },
-  });
-  return profile;
+export const profileToUserResolve = async ({ id }: User, _, { prisma }: Context) => {
+  return await prisma.profile.findUnique({ where: { userId: id } });
 };
 
-export const getProfileToMemberTypeResolve = async (
-  { id }: Member,
-  args,
-  fastify: FastifyInstance,
-) => {
-  const profile = await fastify.prisma.profile.findMany({
-    where: { memberTypeId: id },
-  });
-  return profile;
+export const profToMemberResolve = async ({ id }: Member, _, { prisma }: Context) => {
+  return await prisma.profile.findMany({ where: { memberTypeId: id } });
 };
 
 const profile = {
-  type: profileGraphQLType,
+  type: profileType,
   args: typeArgs,
-  resolve: async (parent, args: ResolveArgs, fastify: FastifyInstance) => {
-    const { id } = args;
-    const profile = await fastify.prisma.profile.findUnique({ where: { id } });
-    return profile;
+  resolve: async (_, { id }: ID, { prisma }: Context) => {
+    return await prisma.profile.findUnique({ where: { id } });
   },
 };
 
 const profiles = {
-  type: profilesGraphQLType,
-  resolve: async (parent, args, fastify: FastifyInstance) => {
-    const profile = await fastify.prisma.profile.findMany();
-    return profile;
-  },
+  type: profilesType,
+  resolve: async (_, args, { prisma }: Context) => await prisma.profile.findMany(),
 };
 
-// mutations
 const argsProfileCreate: GraphQLInputObjectType = new GraphQLInputObjectType({
   name: 'CreateProfileInput',
   fields: {
     isMale: { type: new GraphQLNonNull(GraphQLBoolean) },
     yearOfBirth: { type: new GraphQLNonNull(GraphQLInt) },
     userId: { type: new GraphQLNonNull(UUIDType) },
-    memberTypeId: { type: new GraphQLNonNull(MemberTypeId) },
+    memberTypeId: { type: new GraphQLNonNull(MemberId) },
   },
 });
 
@@ -102,37 +80,32 @@ const argsProfileUpdate: GraphQLInputObjectType = new GraphQLInputObjectType({
 });
 
 const createProfile = {
-  type: profileGraphQLType,
+  type: profileType,
   args: {
     dto: { type: new GraphQLNonNull(argsProfileCreate) },
   },
-  resolve: async (parent, { dto }: CreateProfileArgs, fastify: FastifyInstance) => {
-    const profile = await fastify.prisma.profile.create({ data: dto });
-    return profile;
+  resolve: async (_, { dto }: CreateProfileArgs, { prisma }: Context) => {
+    return await prisma.profile.create({ data: dto });
   },
 };
 
 const changeProfile = {
-  type: profileGraphQLType,
+  type: profileType,
   args: {
     id: { type: new GraphQLNonNull(UUIDType) },
     dto: { type: new GraphQLNonNull(argsProfileUpdate) },
   },
-  resolve: async (parent, { id, dto }: UpdateProfileArgs, fastify: FastifyInstance) => {
-    const profile = await fastify.prisma.profile.update({
-      where: { id },
-      data: dto,
-    });
-    return profile;
+  resolve: async (_, { id, dto }: UpdateProfileArgs, { prisma }: Context) => {
+    return await prisma.profile.update({ where: { id }, data: dto });
   },
 };
 
 const deleteProfile = {
   type: GraphQLBoolean,
   args: { id: { type: UUIDType } },
-  resolve: async (parent, { id }: { id: string }, fastify: FastifyInstance) => {
+  resolve: async (_, { id }: ID, { prisma }: Context) => {
     try {
-      await fastify.prisma.profile.delete({ where: { id } });
+      await prisma.profile.delete({ where: { id } });
     } catch (error) {
       return error;
     }
@@ -140,7 +113,6 @@ const deleteProfile = {
 };
 
 export const profileQuery = { profile, profiles };
-
 export const profileMutations = {
   createProfile,
   changeProfile,

@@ -7,12 +7,11 @@ import {
   GraphQLInputObjectType,
 } from 'graphql';
 import { UUIDType } from '../types/uuid.js';
-import { FastifyInstance } from 'fastify';
-import { ResolveArgs, User, CreatePostArgs, UpdatePostArgs } from '../types/types.js';
+import { ID, User, CreatePostArgs, UpdatePostArgs, Context } from '../types/types.js';
 import { typeArgs } from '../types/constant.js';
-import { userGraphQLType, getUsersToPostResolve } from './user.js';
+import { userType, usersToPostResolve } from './user.js';
 
-export const postGraphQLType = new GraphQLObjectType({
+export const postType = new GraphQLObjectType({
   name: 'Post',
   fields: () => ({
     id: { type: UUIDType },
@@ -20,44 +19,31 @@ export const postGraphQLType = new GraphQLObjectType({
     content: { type: GraphQLString },
     authorId: { type: UUIDType },
     author: {
-      type: userGraphQLType,
-      resolve: getUsersToPostResolve,
+      type: userType,
+      resolve: usersToPostResolve,
     },
   }),
 });
 
-const postsGraphQLType = new GraphQLNonNull(
-  new GraphQLList(new GraphQLNonNull(postGraphQLType)),
-);
+const postsType = new GraphQLNonNull(new GraphQLList(new GraphQLNonNull(postType)));
 
-export const getPostToUserResolve = async (
-  { id }: User,
-  args,
-  fastify: FastifyInstance,
-) => {
-  const post = await fastify.prisma.post.findMany({ where: { authorId: id } });
-  return post;
+export const postToUserResolve = async ({ id }: User, args, { prisma }: Context) => {
+  return await prisma.post.findMany({ where: { authorId: id } });
 };
 
 const post = {
-  type: postGraphQLType,
+  type: postType,
   args: typeArgs,
-  resolve: async (parent, args: ResolveArgs, fastify: FastifyInstance) => {
-    const { id } = args;
-    const post = await fastify.prisma.post.findUnique({ where: { id } });
-    return post;
+  resolve: async (_, { id }: ID, { prisma }: Context) => {
+    return await prisma.post.findUnique({ where: { id } });
   },
 };
 
 const posts = {
-  type: postsGraphQLType,
-  resolve: async (parent, args, fastify: FastifyInstance) => {
-    const post = fastify.prisma.post.findMany();
-    return post;
-  },
+  type: postsType,
+  resolve: async (_, args, { prisma }: Context) => await prisma.post.findMany(),
 };
 
-// mutations
 const createPostArgs = new GraphQLInputObjectType({
   name: 'CreatePostInput',
   fields: {
@@ -76,28 +62,23 @@ const updatePostArgs = new GraphQLInputObjectType({
 });
 
 const createPost = {
-  type: postGraphQLType,
+  type: postType,
   args: {
     dto: { type: new GraphQLNonNull(createPostArgs) },
   },
-  resolve: async (parent, { dto }: CreatePostArgs, fastify: FastifyInstance) => {
-    const post = await fastify.prisma.post.create({ data: dto });
-    return post;
+  resolve: async (_, { dto }: CreatePostArgs, { prisma }: Context) => {
+    return await prisma.post.create({ data: dto });
   },
 };
 
 const changePost = {
-  type: postGraphQLType,
+  type: postType,
   args: {
     id: { type: new GraphQLNonNull(UUIDType) },
     dto: { type: new GraphQLNonNull(updatePostArgs) },
   },
-  resolve: async (parent, { id, dto }: UpdatePostArgs, fastify: FastifyInstance) => {
-    const post = await fastify.prisma.post.update({
-      where: { id },
-      data: dto,
-    });
-    return post;
+  resolve: async (_, { id, dto }: UpdatePostArgs, { prisma }: Context) => {
+    return await prisma.post.update({ where: { id }, data: dto });
   },
 };
 
@@ -106,9 +87,9 @@ const deletePost = {
   args: {
     id: { type: new GraphQLNonNull(UUIDType) },
   },
-  resolve: async (parent, { id }: { id: string }, fastify: FastifyInstance) => {
+  resolve: async (_, { id }: ID, { prisma }: Context) => {
     try {
-      await fastify.prisma.post.delete({ where: { id } });
+      await prisma.post.delete({ where: { id } });
     } catch (error) {
       return error;
     }
@@ -116,7 +97,6 @@ const deletePost = {
 };
 
 export const postQuery = { post, posts };
-
 export const postMutations = {
   createPost,
   changePost,

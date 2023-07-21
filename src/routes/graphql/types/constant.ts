@@ -5,7 +5,7 @@ export const typeArgs = {
   id: { type: new GraphQLNonNull(UUIDType) },
 };
 
-export const MemberTypeId = new GraphQLEnumType({
+export const MemberId = new GraphQLEnumType({
   name: 'MemberTypeId',
   values: {
     basic: { value: 'basic' },
@@ -14,5 +14,5 @@ export const MemberTypeId = new GraphQLEnumType({
 });
 
 export const typeArgsMemberTypeId = {
-  id: { type: new GraphQLNonNull(MemberTypeId) },
+  id: { type: new GraphQLNonNull(MemberId) },
 };

@@ -1,3 +1,13 @@
+import { PrismaClient } from '@prisma/client';
+
+export interface Context {
+  prisma: PrismaClient;
+}
+
+export interface ID {
+  id: string;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -71,9 +81,5 @@ export interface CreateProfileArgs {
 }
 
 export interface UpdateProfileArgs extends CreateProfileArgs {
-  id: string;
-}
-
-export interface ResolveArgs {
   id: string;
 }
