@@ -1,7 +1,16 @@
 import { PrismaClient } from '@prisma/client';
+import DataLoader from 'dataloader';
 
-export interface Context {
+export interface Context extends Loaders {
   prisma: PrismaClient;
+}
+
+interface Loaders {
+  profileLoader: DataLoader<string, Profile>;
+  postsLoader: DataLoader<string, Post[]>;
+  memberTypeLoader: DataLoader<string, Member>;
+  userSubscribedTo: DataLoader<string, User[]>;
+  userSubscribers: DataLoader<string, User[]>;
 }
 
 export interface ID {
@@ -24,8 +33,8 @@ export interface Profile {
   yearOfBirth: number;
   userId: string;
   memberTypeId: string;
-  user: User;
-  memberType: Member;
+  user?: User;
+  memberType?: Member;
 }
 
 export interface Post {
@@ -33,14 +42,14 @@ export interface Post {
   title: string;
   content: string;
   authorId: string;
-  author: User;
+  author?: User;
 }
 
 export interface Member {
   id: string;
   discount: number;
   postsLimitPerMonth: number;
-  profiles: Profile[];
+  profiles?: Profile[];
 }
 
 export interface CreateUserArgs {
@@ -74,3 +83,13 @@ export interface CreateProfileArgs {
 export interface ChangeUserArgs extends ID, CreateUserArgs {}
 export interface UpdatePostArgs extends ID, CreatePostArgs {}
 export interface UpdateProfileArgs extends ID, CreateProfileArgs {}
+
+export interface UserSubscribed {
+  subscriberId: string;
+  author: User;
+}
+
+export interface SubscribedToUser {
+  authorId: string;
+  subscriber: User;
+}

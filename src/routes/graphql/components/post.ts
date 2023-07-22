@@ -11,6 +11,7 @@ import { ID, User, CreatePostArgs, UpdatePostArgs, Context } from '../types/type
 import { typeArgs } from '../types/constant.js';
 import { userType, usersToPostResolve } from './user.js';
 
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 export const postType = new GraphQLObjectType({
   name: 'Post',
   fields: () => ({
@@ -27,8 +28,8 @@ export const postType = new GraphQLObjectType({
 
 const postsType = new GraphQLNonNull(new GraphQLList(new GraphQLNonNull(postType)));
 
-export const postToUserResolve = async ({ id }: User, args, { prisma }: Context) => {
-  return await prisma.post.findMany({ where: { authorId: id } });
+export const postToUserResolve = async ({ id }: User, args, { postsLoader }: Context) => {
+  return await postsLoader.load(id);
 };
 
 const post = {

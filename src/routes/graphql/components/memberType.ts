@@ -27,9 +27,9 @@ const memberTypesGQL = new GraphQLNonNull(new GraphQLList(new GraphQLNonNull(mem
 export const memberToProfResolve = async (
   { memberTypeId }: Profile,
   _,
-  { prisma }: Context,
+  { memberTypeLoader }: Context,
 ) => {
-  return await prisma.memberType.findUnique({ where: { id: memberTypeId } });
+  return await memberTypeLoader.load(memberTypeId);
 };
 
 const memberType = {

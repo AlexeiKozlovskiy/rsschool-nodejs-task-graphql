@@ -3,6 +3,13 @@ import { createGqlResponseSchema, gqlResponseSchema } from './schemas.js';
 import { graphql, parse, validate } from 'graphql';
 import { schema } from './schemas.js';
 import depthLimit from 'graphql-depth-limit';
+import {
+  profileLoader,
+  postLoader,
+  memberTypeLoader,
+  userSubscribedToLoader,
+  subscribedToUserLoader,
+} from './components/context.js';
 
 const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
   fastify.route({
@@ -17,10 +24,11 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
     async handler(req) {
       const { body } = req;
       const { query, variables } = body;
+      const { prisma } = fastify;
 
       const documentNode = parse(query);
       const depthError = validate(schema, documentNode, [depthLimit(5)]);
-      
+
       if (depthError.length) {
         return { result: '', errors: depthError };
       } else {
@@ -28,7 +36,14 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
           schema,
           source: query,
           variableValues: variables,
-          contextValue: fastify,
+          contextValue: {
+            prisma,
+            profileLoader: profileLoader(prisma),
+            postsLoader: postLoader(prisma),
+            memberTypeLoader: memberTypeLoader(prisma),
+            userSubscribedTo: userSubscribedToLoader(prisma),
+            userSubscribers: subscribedToUserLoader(prisma),
+          },
         });
         return result;
       }

@@ -19,6 +19,7 @@ import { typeArgs, MemberId } from '../types/constant.js';
 import { userType, usersToProfResolve } from './user.js';
 import { memberGQL, memberToProfResolve } from './memberType.js';
 
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 export const profileType = new GraphQLObjectType({
   name: 'Profile',
   fields: () => ({
@@ -40,8 +41,12 @@ export const profileType = new GraphQLObjectType({
 
 const profilesType = new GraphQLNonNull(new GraphQLList(new GraphQLNonNull(profileType)));
 
-export const profileToUserResolve = async ({ id }: User, _, { prisma }: Context) => {
-  return await prisma.profile.findUnique({ where: { userId: id } });
+export const profileToUserResolve = async (
+  { id }: User,
+  _,
+  { profileLoader }: Context,
+) => {
+  return await profileLoader.load(id);
 };
 
 export const profToMemberResolve = async ({ id }: Member, _, { prisma }: Context) => {
